@@ -1,11 +1,12 @@
 import numpy
 import time
-# import qlearn
+import os, io
 import numpy as np
 import random
 import tensorflow as tf
 from tkinter import *
 import pylab
+from PIL import Image
 
 
 def nn_map_ploting(title, width, height, cell_size, obstacles, start, destination, nn,  map_dims, filename):
@@ -104,6 +105,110 @@ def nn_map_ploting(title, width, height, cell_size, obstacles, start, destinatio
   canvas.postscript(file=filename, colormode='color')
   window.mainloop()
 
+
+def visualize_evaluation(title, width, height, cell_size, obstacles, start, destination, nn,  map_dims, filename):
+
+  window = Tk()
+  window.title(title)
+  canvas = Canvas(window, width=width, height=height)
+  canvas.grid(row=0, column=0)
+
+  # draw the grid
+  j = 20
+  for i in range(map_dims+1):
+    canvas.create_line(20,j, cell_size*map_dims + 20,j, width = 1, fill = "black")
+    j += cell_size
+  j = 20
+  for i in range(map_dims+1):
+    canvas.create_line(j, 20, j, cell_size*map_dims+20, width = 1, fill = "black")
+    j += cell_size
+  
+  # create a destination square on the map
+  if len(destination) != 0:
+    des_x = destination[0]*cell_size+ int(cell_size/2) + 20
+    des_y = destination[1]*cell_size+ int(cell_size/2) + 20
+    canvas.create_rectangle(des_x-int(cell_size/2), des_y-int(cell_size/2), des_x+int(cell_size/2), des_y+int(cell_size/2), fill = "red")
+
+  # create the start point on the map:
+  if len(start) != 0:
+    start_x= start[0]*cell_size + int(cell_size/2) + 20
+    start_y= start[1]*cell_size + int(cell_size/2) + 20
+    canvas.create_rectangle(start_x-8, start_y-8, start_x+8, start_y+8, fill = "yellow")
+
+  # draw the obstacles
+  for i in range(len(obstacles)):
+    dx1 = obstacles[i][0]*cell_size + 20
+    dx2 = (obstacles[i][0]+1)*cell_size + 20
+    dy1 = obstacles[i][1]*cell_size + 20
+    dy2 = (obstacles[i][1]+1)*cell_size + 20
+    
+    rec1 = canvas.create_rectangle(dx1,dy1,dx2,dy2, fill = "black")
+  
+  start1 = np.array((start[0],start[1]))
+  state1 = np.array((start[0],start[1]))
+  target1 = np.array((destination[0],destination[1]))
+  images = []
+  # cnv = getscreen().getcanvas()
+  # global hen
+  # hen = filedialog.asksaveasfilename(defaultextension = '.jpg')
+  while True:
+    # print(state1)
+    in_vector = decInputToBinInput(state_size=24, state=state1, start=start1, \
+                                        target=target1, input_channels=2, n_bits=6)
+
+    t = nn.predict(in_vector)
+    t = np.exp(t[0])
+    p = np.zeros(4)
+    for i in range(len(p)):
+      p[i] = t[i]/ np.sum(t)
+      if p[i] < 0.0001:
+        p[i] = 0.0
+    # print(p)
+    if random.random() < 0.1:
+      direction = np.argmax(p)
+    # value = np.max(p)
+    else:
+      direction = random.choices(range(len(p)), weights=p)[0]
+    if direction == 0:
+      state1[0] -= 1
+    elif direction == 1:
+      state1[0] += 1
+    elif direction == 2:
+      state1[1] -= 1
+    elif direction == 3:
+      state1[1] += 1
+
+    start_x= state1[0]*cell_size + int(cell_size/2) + 20
+    start_y= state1[1]*cell_size + int(cell_size/2) + 20
+    
+    agent = canvas.create_rectangle(start_x-8, start_y-8, start_x+8, start_y+8, fill = "green")
+    
+    canvas.pack()
+    canvas.update()
+    img = canvas.postscript(colormode='color')
+    # ps = self.canvas.postscript(colormode='color')
+    img1 = Image.open(io.BytesIO(img.encode('utf-8')))
+    images.append(img1)
+    time.sleep(0.05)
+    canvas.delete(agent)
+
+    if (state1[0] == destination[0]) and (state1[1] == destination[1]):
+      break
+  
+  make_gif(images, "video.gif")
+  window.mainloop()
+
+
+# make a gif file
+def make_gif(images, path):
+    images[0].save(
+        path,
+        save_all=True,
+        append_images=images[1:],
+        optimize=True,
+        duration=200,
+        loop=0
+   )
 
 # convert a decimal position to a binary vector 
 def decToBin(num, num_bit):
