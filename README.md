@@ -1,4 +1,4 @@
-# motion_planning
+# planning algorithms
 Contains some path/motion planners:
 1. PSO (gridworld)
 2. PPOPER -gridworld - 1 agent with many obstacles
